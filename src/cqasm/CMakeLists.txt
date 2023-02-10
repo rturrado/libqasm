@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 project(libcqasm CXX)
 
@@ -27,10 +27,10 @@ SET(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 # Require C++11 compiler support.
 if(CMAKE_VERSION VERSION_LESS "3.1")
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23")
     endif()
 else()
-    set(CMAKE_CXX_STANDARD 11)
+    set(CMAKE_CXX_STANDARD 23)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     set(CMAKE_CXX_EXTENSIONS OFF)
 endif()
@@ -50,10 +50,16 @@ else()
     set(flex_win_compat)
 endif()
 
-# Include tree-gen, a custom utility to generate classes for typed tree-like
+# Packages
+include(FetchContent)
+# tree-gen, a custom utility to generate classes for typed tree-like
 # structures and enums with variants containing data. This exposes the
 # generate_tree() function.
-add_subdirectory(tree-gen)
+FetchContent_Declare(tree-gen
+    GIT_REPOSITORY https://github.com/rturrado/tree-gen.git
+    GIT_TAG "d5efeda32468d14e75bef883de299dfe6b511c75"
+)
+FetchContent_MakeAvailable(tree-gen)
 
 # Include func-gen, a simple program that generates the function that registers
 # all default functions (operators, trigonometry, etc) with a
@@ -196,18 +202,11 @@ list(APPEND CQASM_V1_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-functions-gen
 #-------------------------------------------------------------------------------
 
 # Main cQASM library as an object library.
-# NOTE: tree-gen's support library is included here directly. It'd be great to
-# just be able to use target_link_libraries(cqasm_objlib tree-lib-obj), but
-# that only works from CMake 3.12 onwards. So for compatibility, we're forced
-# to do it the old-fashioned way.
 add_library(
     cqasm_objlib OBJECT
-    ${TREE_LIB_SRCS}
     ${CQASM_COMMON_SOURCES}
     ${CQASM_V1_SOURCES}
 )
-
-target_compile_definitions(cqasm_objlib PRIVATE ${TREE_LIB_PRIVATE_DEFS})
 
 # The src directory and binary directory (for generated header files) are
 # private. The include directory is public. That is, the files in include
@@ -239,7 +238,7 @@ set_target_properties(tree-lib-obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # internal BUILD_SHARED_LIBS variable.
 add_library(cqasm $<TARGET_OBJECTS:cqasm_objlib>)
 target_include_directories(cqasm PUBLIC $<TARGET_PROPERTY:cqasm_objlib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(cqasm PUBLIC $<TARGET_PROPERTY:cqasm_objlib,LINK_LIBRARIES>)
+target_link_libraries(cqasm PUBLIC tree-lib-obj $<TARGET_PROPERTY:cqasm_objlib,LINK_LIBRARIES>)
 
 #-------------------------------------------------------------------------------
 # Test instructions
