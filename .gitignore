@@ -92,3 +92,10 @@ tags
 # IDE's
 .project
 .cproject
+/src/cqasm/CMakeUserPresets.json
+/test_package/CMakeUserPresets.json
+/CMakeUserPresets.json
+/conan.lock
+/conanbuildinfo.txt
+/conaninfo.txt
+/graph_info.json

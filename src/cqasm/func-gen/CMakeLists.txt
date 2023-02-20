@@ -13,7 +13,6 @@ target_include_directories(
 )
 
 function(generate_funcs HDR SRC)
-
     # Get the directory for the header file and make sure it exists.
     get_filename_component(HDR_DIR "${HDR}" PATH)
     file(MAKE_DIRECTORY "${HDR_DIR}")
@@ -30,5 +29,4 @@ function(generate_funcs HDR SRC)
         OUTPUT "${HDR}" "${SRC}"
         DEPENDS func-gen
     )
-
 endfunction()

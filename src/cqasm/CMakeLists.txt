@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 project(libcqasm CXX)
 
+find_package(tree-gen CONFIG REQUIRED)
+set(tree-gen-binary "${tree-gen_PACKAGE_FOLDER_RELEASE}/bin/tree-gen")
+set(tree-gen_include_dir "${tree-gen_PACKAGE_FOLDER_RELEASE}/include")
+
 #-------------------------------------------------------------------------------
 # Configuration
 #-------------------------------------------------------------------------------
@@ -22,7 +26,7 @@ option(
 # Windows weirdness: need a .lib file to link against a DLL at compile-time
 # (I think), but only the .dll is generated when there are no exported symbols.
 # This sort of fixes that (https://stackoverflow.com/questions/1941443)
-SET(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 # Require C++11 compiler support.
 if(CMAKE_VERSION VERSION_LESS "3.1")
@@ -49,17 +53,6 @@ if(WIN32)
 else()
     set(flex_win_compat)
 endif()
-
-# Packages
-include(FetchContent)
-# tree-gen, a custom utility to generate classes for typed tree-like
-# structures and enums with variants containing data. This exposes the
-# generate_tree() function.
-FetchContent_Declare(tree-gen
-    GIT_REPOSITORY https://github.com/rturrado/tree-gen.git
-    GIT_TAG "d5efeda32468d14e75bef883de299dfe6b511c75"
-)
-FetchContent_MakeAvailable(tree-gen)
 
 # Include func-gen, a simple program that generates the function that registers
 # all default functions (operators, trigonometry, etc) with a
@@ -124,6 +117,7 @@ set(CQASM_V1_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-resolver.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-parse-helper.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-analyzer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/libqasm.cpp"
 )
 
 # Generate the lexer.
@@ -154,6 +148,7 @@ add_flex_bison_dependency(
 
 # Generate the abstract syntax tree classes.
 generate_tree_py(
+    ${tree-gen-binary}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-ast.tree"
     "${CMAKE_CURRENT_BINARY_DIR}/include/cqasm-v1-ast-gen.hpp"
     "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-ast-gen.cpp"
@@ -163,6 +158,7 @@ list(APPEND CQASM_V1_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-ast-gen.cpp")
 
 # Generate the type tree classes.
 generate_tree_py(
+    ${tree-gen-binary}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-types.tree"
     "${CMAKE_CURRENT_BINARY_DIR}/include/cqasm-v1-types-gen.hpp"
     "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-types-gen.cpp"
@@ -174,6 +170,7 @@ list(APPEND CQASM_V1_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-types-gen.cpp
 # compile-time or only at runtime, but their type is resolved to one of the
 # type tree nodes at compile-time.
 generate_tree_py(
+    ${tree-gen-binary}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-values.tree"
     "${CMAKE_CURRENT_BINARY_DIR}/include/cqasm-v1-values-gen.hpp"
     "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-values-gen.cpp"
@@ -183,6 +180,7 @@ list(APPEND CQASM_V1_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-values-gen.cp
 
 # Generate the semantic tree classes.
 generate_tree_py(
+    ${tree-gen-binary}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-semantic.tree"
     "${CMAKE_CURRENT_BINARY_DIR}/include/cqasm-v1-semantic-gen.hpp"
     "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-semantic-gen.cpp"
@@ -214,8 +212,8 @@ add_library(
 # but the other direction is fine.
 target_include_directories(
     cqasm_objlib
-    PRIVATE ${TREE_LIB_PRIVATE_INCLUDE}
-    PUBLIC ${TREE_LIB_PUBLIC_INCLUDE}
+    PRIVATE ${tree-gen_include_dir}
+    PUBLIC ${tree-gen_include_dir}
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/"
     PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/"
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/"
@@ -232,13 +230,12 @@ endif()
 # Always compiled with -fPIC, otherwise some weirdness happens with pthreads or
 # something when linking statically.
 set_target_properties(cqasm_objlib PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(tree-lib-obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Main cQASM library in shared or static form as managed by cmake's
 # internal BUILD_SHARED_LIBS variable.
 add_library(cqasm $<TARGET_OBJECTS:cqasm_objlib>)
 target_include_directories(cqasm PUBLIC $<TARGET_PROPERTY:cqasm_objlib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(cqasm PUBLIC tree-lib-obj $<TARGET_PROPERTY:cqasm_objlib,LINK_LIBRARIES>)
+target_link_libraries(cqasm PUBLIC tree-lib $<TARGET_PROPERTY:cqasm_objlib,LINK_LIBRARIES>)
 
 #-------------------------------------------------------------------------------
 # Test instructions
