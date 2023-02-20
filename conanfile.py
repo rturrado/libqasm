@@ -1,3 +1,4 @@
+import os
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake, cmake_layout
 
@@ -21,6 +22,9 @@ class LibqasmConan(ConanFile):
     def requirements(self):
         self.requires("tree-gen/0.1")
 
+    def build_requirements(self):
+        self.tool_requires("tree-gen/0.1")
+
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
@@ -32,6 +36,7 @@ class LibqasmConan(ConanFile):
         deps = CMakeDeps(self)
         deps.generate()
         tc = CMakeToolchain(self)
+        tc.variables["TREE-GEN_BINARY_PATH"] = os.path.join(self.dependencies["tree-gen"].package_folder, "bin", "tree-gen")
         tc.generate()
 
     def build(self):
