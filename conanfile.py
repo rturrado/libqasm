@@ -22,9 +22,6 @@ class LibqasmConan(ConanFile):
     def requirements(self):
         self.requires("tree-gen/0.1")
 
-    def build_requirements(self):
-        self.tool_requires("tree-gen/0.1")
-
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
