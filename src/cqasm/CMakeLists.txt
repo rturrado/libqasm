@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 project(libcqasm CXX)
 
-find_package(tree-gen CONFIG REQUIRED)
-
 #-------------------------------------------------------------------------------
 # Configuration
 #-------------------------------------------------------------------------------
@@ -51,6 +49,11 @@ if(WIN32)
 else()
     set(flex_win_compat)
 endif()
+
+# Include tree-gen, a custom utility to generate classes for typed tree-like
+# structures and enums with variants containing data. This exposes the
+# generate_tree() function.
+add_subdirectory(tree-gen)
 
 # Include func-gen, a simple program that generates the function that registers
 # all default functions (operators, trigonometry, etc) with a
@@ -146,7 +149,6 @@ add_flex_bison_dependency(
 
 # Generate the abstract syntax tree classes.
 generate_tree_py(
-    ${TREE-GEN_BINARY_PATH}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-ast.tree"
     "${CMAKE_CURRENT_BINARY_DIR}/include/cqasm-v1-ast-gen.hpp"
     "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-ast-gen.cpp"
@@ -156,7 +158,6 @@ list(APPEND CQASM_V1_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-ast-gen.cpp")
 
 # Generate the type tree classes.
 generate_tree_py(
-    ${TREE-GEN_BINARY_PATH}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-types.tree"
     "${CMAKE_CURRENT_BINARY_DIR}/include/cqasm-v1-types-gen.hpp"
     "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-types-gen.cpp"
@@ -168,7 +169,6 @@ list(APPEND CQASM_V1_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-types-gen.cpp
 # compile-time or only at runtime, but their type is resolved to one of the
 # type tree nodes at compile-time.
 generate_tree_py(
-    ${TREE-GEN_BINARY_PATH}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-values.tree"
     "${CMAKE_CURRENT_BINARY_DIR}/include/cqasm-v1-values-gen.hpp"
     "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-values-gen.cpp"
@@ -178,7 +178,6 @@ list(APPEND CQASM_V1_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-values-gen.cp
 
 # Generate the semantic tree classes.
 generate_tree_py(
-    ${TREE-GEN_BINARY_PATH}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cqasm-v1-semantic.tree"
     "${CMAKE_CURRENT_BINARY_DIR}/include/cqasm-v1-semantic-gen.hpp"
     "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-semantic-gen.cpp"
@@ -200,9 +199,12 @@ list(APPEND CQASM_V1_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/cqasm-v1-functions-gen
 # Main cQASM library as an object library.
 add_library(
     cqasm_objlib OBJECT
+    ${TREE_LIB_SRCS}
     ${CQASM_COMMON_SOURCES}
     ${CQASM_V1_SOURCES}
 )
+
+target_compile_definitions(cqasm_objlib PRIVATE ${TREE_LIB_PRIVATE_DEFS})
 
 # The src directory and binary directory (for generated header files) are
 # private. The include directory is public. That is, the files in include
@@ -210,8 +212,8 @@ add_library(
 # but the other direction is fine.
 target_include_directories(
     cqasm_objlib
-    PRIVATE ${tree-gen_INCLUDE_DIRS}
-    PUBLIC ${tree-gen_INCLUDE_DIRS}
+    PRIVATE ${TREE_LIB_PRIVATE_INCLUDE}
+    PUBLIC ${TREE_LIB_PUBLIC_INCLUDE}
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/"
     PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/"
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/"
@@ -228,12 +230,13 @@ endif()
 # Always compiled with -fPIC, otherwise some weirdness happens with pthreads or
 # something when linking statically.
 set_target_properties(cqasm_objlib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(tree-lib-obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Main cQASM library in shared or static form as managed by cmake's
 # internal BUILD_SHARED_LIBS variable.
 add_library(cqasm $<TARGET_OBJECTS:cqasm_objlib>)
 target_include_directories(cqasm PUBLIC $<TARGET_PROPERTY:cqasm_objlib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(cqasm PUBLIC tree-gen::tree-gen $<TARGET_PROPERTY:cqasm_objlib,LINK_LIBRARIES>)
+target_link_libraries(cqasm PUBLIC $<TARGET_PROPERTY:cqasm_objlib,LINK_LIBRARIES>)
 
 #-------------------------------------------------------------------------------
 # Test instructions

@@ -7,6 +7,9 @@ This fork is playing with:
 - C++23.
 - CMake 3.20.
 
+The following dependencies are still installed as git submodules:
+- `tree-gen`.
+
 ## Build
 
 ```

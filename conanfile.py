@@ -1,6 +1,5 @@
-import os
 from conan import ConanFile
-from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
+from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
 
 
 class LibqasmConan(ConanFile):
@@ -19,9 +18,6 @@ class LibqasmConan(ConanFile):
     # Sources are located in the same place as this recipe, copy them to the recipe
     exports_sources = "CMakeLists.txt", "src/*"
 
-    def requirements(self):
-        self.requires("tree-gen/0.1")
-
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
@@ -30,10 +26,7 @@ class LibqasmConan(ConanFile):
         cmake_layout(self)
 
     def generate(self):
-        deps = CMakeDeps(self)
-        deps.generate()
         tc = CMakeToolchain(self)
-        tc.variables["TREE-GEN_BINARY_PATH"] = os.path.join(self.dependencies["tree-gen"].package_folder, "bin", "tree-gen")
         tc.generate()
 
     def build(self):
